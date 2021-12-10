@@ -1,27 +1,19 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-
 using Mono.Cecil;
-using Mono.Cecil.Cil;
 
 namespace TerrariaZoomPatcher
 {
     class Program
     {
-        public static DirectoryInfo GetExecutingDirectory()
-        {
-            var location = new Uri(Assembly.GetEntryAssembly().GetName().CodeBase);
-            return new FileInfo(location.AbsolutePath).Directory;
-        }
         static void Main(string[] args)
         {
-            var currentDirectory = GetExecutingDirectory();
-            Console.WriteLine(currentDirectory);
-            var terrariaPath = currentDirectory.GetFiles("Terraria.exe")[0];    // will fail
-            Console.WriteLine(terrariaPath);
-            ModuleDefinition terrariaAsModule = ModuleDefinition.ReadModule(terrariaPath.ToString());
+            var terrariaPath = args.Length == 0 ? Path.Combine(Directory.GetCurrentDirectory(), "Terraria.exe") : args[0];
+            if (!File.Exists(terrariaPath)) return;
+            var newTerrariaPath = Path.Combine(Path.GetDirectoryName(terrariaPath), "Terraria.exe.bak");
+            if (File.Exists(newTerrariaPath)) File.Delete(newTerrariaPath);
+            File.Move(terrariaPath, newTerrariaPath);
+            ModuleDefinition terrariaAsModule = ModuleDefinition.ReadModule(newTerrariaPath);
             foreach (var type in terrariaAsModule.Types)
             {
                 if (type.Name == "Main")
@@ -36,12 +28,14 @@ namespace TerrariaZoomPatcher
                                     instruction.Previous.ToString().Contains("Max"))
                                 {
                                     var insLoop = instruction;
+                                    // remove 15 instructions before the selected one
                                     for (var i = 0; i < 16; i++)
                                     {
                                         var toBeRemoved = insLoop;
                                         insLoop = insLoop.Previous;
                                         method.Body.Instructions.Remove(toBeRemoved);
                                     }
+
                                     break;
                                 }
                             }
@@ -51,9 +45,7 @@ namespace TerrariaZoomPatcher
                     }
                 }
             }
-
-            Console.ReadKey();
-            terrariaAsModule.Write(Path.Combine(currentDirectory.ToString(), "copy.exe"));
+            terrariaAsModule.Write("Terraria.exe");
         }
     }
 }
