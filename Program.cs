@@ -10,9 +10,12 @@ namespace TerrariaZoomPatcher
         {
             var terrariaPath = args.Length == 0 ? Path.Combine(Directory.GetCurrentDirectory(), "Terraria.exe") : args[0];
             if (!File.Exists(terrariaPath)) return;
+
             var newTerrariaPath = Path.Combine(Path.GetDirectoryName(terrariaPath), "Terraria.exe.bak");
             if (File.Exists(newTerrariaPath)) File.Delete(newTerrariaPath);
+
             File.Move(terrariaPath, newTerrariaPath);
+
             ModuleDefinition terrariaAsModule = ModuleDefinition.ReadModule(newTerrariaPath);
             foreach (var type in terrariaAsModule.Types)
             {
@@ -24,12 +27,14 @@ namespace TerrariaZoomPatcher
                         {
                             foreach (var instruction in method.Body.Instructions)
                             {
+                                Console.WriteLine(instruction.ToString());
+
                                 if (instruction.ToString().Contains("ForcedMinimumZoom") &&
                                     instruction.Previous.ToString().Contains("Max"))
                                 {
                                     var insLoop = instruction;
-                                    // remove 15 instructions before the selected one
-                                    for (var i = 0; i < 16; i++)
+                                    // remove 20 instructions before the selected one
+                                    for (var i = 0; i < 20; i++)
                                     {
                                         var toBeRemoved = insLoop;
                                         insLoop = insLoop.Previous;
@@ -45,6 +50,7 @@ namespace TerrariaZoomPatcher
                     }
                 }
             }
+
             terrariaAsModule.Write("Terraria.exe");
         }
     }
