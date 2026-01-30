@@ -1,6 +1,5 @@
-﻿using System;
+﻿using Mono.Cecil;
 using System.IO;
-using Mono.Cecil;
 
 namespace TerrariaZoomPatcher
 {
@@ -23,12 +22,38 @@ namespace TerrariaZoomPatcher
                 {
                     foreach (var method in type.Methods)
                     {
+                        // Allow for drawing wider than 1920 + 192 * 2
+                        if (method.Name == ".cctor")
+                        {
+                            foreach (var instruction in method.Body.Instructions)
+                            {
+                                if (instruction.ToString().Contains("Terraria.Main::MaxWorldViewSize")) 
+                                {
+                                    // keeping it safe so that x + 192 * 2 < 4096
+                                    // above 4096 might be possible on Windows
+                                    instruction.Previous.Previous.Operand = 3711; // default 1200
+                                    instruction.Previous.Previous.Previous.Operand = 3711; // default 1920
+                                }
+                            }
+                        }
+
+                        // Changing MaxWorldViewSize throws off the high res detection so just always force it
+                        if (method.Name == "LoadContent_TryEnteringHiDef")
+                        {
+                            foreach (var instruction in method.Body.Instructions)
+                            {
+                                if (instruction.ToString().Contains("Support4K") && instruction.Previous.Previous.ToString().Contains("IsXna"))
+                                {
+                                    instruction.Next.Operand = ((Mono.Cecil.Cil.Instruction)instruction.Next.Operand).Next.Next; // Jump two ins further
+                                }
+                            }
+                        }
+
+                        // Remove the force zoom instructions
                         if (method.Name == "DoDraw")
                         {
                             foreach (var instruction in method.Body.Instructions)
                             {
-                                Console.WriteLine(instruction.ToString());
-
                                 if (instruction.ToString().Contains("ForcedMinimumZoom") &&
                                     instruction.Previous.ToString().Contains("Max"))
                                 {
@@ -44,14 +69,12 @@ namespace TerrariaZoomPatcher
                                     break;
                                 }
                             }
-
-                            Console.WriteLine(method);
                         }
                     }
                 }
             }
 
-            terrariaAsModule.Write("Terraria.exe");
+             terrariaAsModule.Write("Terraria.exe");
         }
     }
 }
